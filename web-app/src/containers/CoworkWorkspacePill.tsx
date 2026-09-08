@@ -1,4 +1,5 @@
 import { Folder, FolderPlus, GitBranch, PencilLine } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   Popover,
@@ -40,6 +41,49 @@ export function CoworkWorkspacePill({
   const { t } = useTranslation()
   const serviceHub = useServiceHub()
   const folderName = folder ? basenameOf(folder) : null
+
+  const notifyWorkspaceActionError = (
+    action: 'open' | 'reveal',
+    error: unknown
+  ) => {
+    const detail = error instanceof Error ? error.message : String(error)
+    const missing = /ENOENT|no such file|does not exist|not found|path not found/i.test(detail)
+    const title = missing
+      ? t('common:workspace.unavailable')
+      : t(
+          action === 'open'
+            ? 'common:workspace.openFailed'
+            : 'common:workspace.revealFailed'
+        )
+
+    toast.error(title, {
+      description: missing
+        ? t('common:workspace.missing', { folder: folderName })
+        : detail,
+      action: {
+        label: t('common:workspace.change'),
+        onClick: onAttach,
+      },
+    })
+  }
+
+  const handleOpen = async () => {
+    if (!folder) return
+    try {
+      await serviceHub.opener().openPath(folder)
+    } catch (error) {
+      notifyWorkspaceActionError('open', error)
+    }
+  }
+
+  const handleReveal = async () => {
+    if (!folder) return
+    try {
+      await serviceHub.opener().revealItemInDir(folder)
+    } catch (error) {
+      notifyWorkspaceActionError('reveal', error)
+    }
+  }
 
   return (
     <Popover>
@@ -99,7 +143,7 @@ export function CoworkWorkspacePill({
                 variant="ghost"
                 size="sm"
                 className="ml-auto h-7"
-                onClick={() => void serviceHub.opener().openPath(folder)}
+                onClick={handleOpen}
               >
                 {t('common:workspace.open')}
               </Button>
@@ -107,7 +151,7 @@ export function CoworkWorkspacePill({
                 variant="ghost"
                 size="sm"
                 className="h-7"
-                onClick={() => void serviceHub.opener().revealItemInDir(folder)}
+                onClick={handleReveal}
               >
                 {t('common:workspace.reveal')}
               </Button>
